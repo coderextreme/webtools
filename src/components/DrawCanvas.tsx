@@ -4,9 +4,6 @@
  * 8-handle bounding-box scaling, rotation, node reshaping, rulers,
  * grid snapping, rubberband marquee selection, and comprehensive
  * single-touch & multi-touch (pinch-to-zoom & two-finger pan) input support.
- *
- * Fully verified for touch-drag creation of shapes (Rectangles, Circles/Ellipses, Lines)
- * and seamless mobile virtual keyboard invocation when creating or editing text.
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -30,8 +27,6 @@ import {
   Sliders,
   Check,
   X,
-  CornerDownLeft,
-  Type,
 } from 'lucide-react';
 
 export interface DrawCanvasProps {
@@ -55,8 +50,6 @@ export interface DrawCanvasProps {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
-  editingTextGraphic?: TextGraphic | null;
-  onCloseTextEditor?: () => void;
 }
 
 type HandleType = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rot' | 'node';
@@ -73,8 +66,6 @@ interface DragState {
   initialPoints?: Point[];
   activeGraphic?: Graphic;
   isTouch?: boolean;
-  isClickOnSelectedTextBox?: boolean;
-  clickedTextGraphic?: TextGraphic;
 }
 
 export const DrawCanvas: React.FC<DrawCanvasProps> = ({
@@ -98,12 +89,9 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
   canRedo = false,
   onUndo,
   onRedo,
-  editingTextGraphic,
-  onCloseTextEditor,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const textInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Pan offset (world origin relative to viewport)
   const [panOffset, setPanOffset] = useState<Point>({ x: 50, y: 50 });
@@ -113,49 +101,16 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
   // In-progress multi-point drawing (for polylines, polygons, B-splines)
   const [inProgressPoints, setInProgressPoints] = useState<Point[]>([]);
 
-  // Text edit state: supports creating new text OR editing existing TextGraphic
+  // Text edit input
   const [editingText, setEditingText] = useState<{
     graphic?: TextGraphic;
     worldPos: Point;
     text: string;
   } | null>(null);
 
-  // Sync external request to edit a TextGraphic (e.g. from Inspector)
-  useEffect(() => {
-    if (editingTextGraphic) {
-      setEditingText({
-        graphic: editingTextGraphic,
-        worldPos: { x: editingTextGraphic.x, y: editingTextGraphic.y },
-        text: editingTextGraphic.text,
-      });
-    }
-  }, [editingTextGraphic]);
-
-  // Double tap detection for touch devices
-  const lastTapRef = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 });
-
   // Active mouse / single-touch dragging state
   const dragStateRef = useRef<DragState | null>(null);
   const isSpacePressedRef = useRef(false);
-
-  // Dynamic state refs to guarantee native touch listeners NEVER suffer from stale closures
-  const currentToolRef = useRef(currentTool);
-  currentToolRef.current = currentTool;
-
-  const graphicsRef = useRef(graphics);
-  graphicsRef.current = graphics;
-
-  const selectedGraphicsRef = useRef(selectedGraphics);
-  selectedGraphicsRef.current = selectedGraphics;
-
-  const zoomLevelRef = useRef(zoomLevel);
-  zoomLevelRef.current = zoomLevel;
-
-  const panOffsetRef = useRef(panOffset);
-  panOffsetRef.current = panOffset;
-
-  const inProgressPointsRef = useRef(inProgressPoints);
-  inProgressPointsRef.current = inProgressPoints;
 
   // Multi-touch pinch & pan tracking refs
   const pinchRef = useRef<{
@@ -172,7 +127,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
     lastMidpoint: { x: 0, y: 0 },
   });
 
-  // Track touch capability for larger handle hitboxes
+  // Keep track of touch devices for generous hit tolerance
   const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
 
   useEffect(() => {
@@ -181,30 +136,6 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
     }
   }, []);
 
-  // When editingText opens, auto-focus textarea and trigger mobile keyboard
-  useEffect(() => {
-    if (editingText) {
-      // Immediate synchronous focus attempt
-      textInputRef.current?.focus();
-      textInputRef.current?.select();
-
-      // Mobile Safari / WebKit micro-delay focus backup
-      const t1 = setTimeout(() => {
-        textInputRef.current?.focus();
-        textInputRef.current?.select();
-      }, 50);
-
-      const t2 = setTimeout(() => {
-        textInputRef.current?.focus();
-      }, 150);
-
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
-    }
-  }, [editingText]);
-
   // Converts client event coordinates to world space
   const screenToWorld = useCallback(
     (clientX: number, clientY: number): Point => {
@@ -212,13 +143,11 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       const rect = canvasRef.current.getBoundingClientRect();
       const sx = clientX - rect.left;
       const sy = clientY - rect.top;
-      const curPan = panOffsetRef.current;
-      const curZoom = zoomLevelRef.current;
-      const wx = (sx - curPan.x) / curZoom;
-      const wy = (sy - curPan.y) / curZoom;
+      const wx = (sx - panOffset.x) / zoomLevel;
+      const wy = (sy - panOffset.y) / zoomLevel;
       return { x: wx, y: wy };
     },
-    []
+    [panOffset, zoomLevel]
   );
 
   // Snaps coordinate to grid if enabled
@@ -239,14 +168,13 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
 
   // Calculates bounding box of all currently selected graphics
   const getSelectedBounds = useCallback((): RectBounds | null => {
-    const sel = selectedGraphicsRef.current;
-    if (sel.length === 0) return null;
+    if (selectedGraphics.length === 0) return null;
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
 
-    for (const g of sel) {
+    for (const g of selectedGraphics) {
       const b = g.getBounds();
       if (b.x < minX) minX = b.x;
       if (b.y < minY) minY = b.y;
@@ -260,7 +188,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       width: Math.max(1, maxX - minX),
       height: Math.max(1, maxY - minY),
     };
-  }, []);
+  }, [selectedGraphics]);
 
   // Main Canvas Render Loop
   useEffect(() => {
@@ -351,7 +279,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       ctx.strokeRect(bx, by, bw, bh);
 
       // Handle definitions (larger on touch for thumb precision)
-      const handleSize = (isTouchDevice ? 12 : 8) / zoomLevel;
+      const handleSize = (isTouchDevice ? 11 : 7) / zoomLevel;
       const handles: { type: HandleType; x: number; y: number }[] = [
         { type: 'nw', x: bx, y: by },
         { type: 'n', x: bx + bw / 2, y: by },
@@ -375,7 +303,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       }
 
       // Draw Rotation Handle above the box
-      const rotDist = (isTouchDevice ? 30 : 20) / zoomLevel;
+      const rotDist = (isTouchDevice ? 28 : 20) / zoomLevel;
       const rotX = bx + bw / 2;
       const rotY = by - rotDist;
 
@@ -385,20 +313,9 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.arc(rotX, rotY, handleSize / 1.5, 0, Math.PI * 2);
+      ctx.arc(rotX, rotY, handleSize / 1.6, 0, Math.PI * 2);
       ctx.fillStyle = '#38BDF8';
       ctx.fill();
-
-      // For selected TextGraphic, show a helpful indicator that clicking the box opens the text editor
-      if (selectedGraphics.length === 1 && selectedGraphics[0] instanceof TextGraphic) {
-        ctx.save();
-        ctx.font = `${Math.max(10, 11 / zoomLevel)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.fillStyle = '#38BDF8';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText('✎ Click box to edit text', bx + bw / 2, by + bh + 8 / zoomLevel);
-        ctx.restore();
-      }
 
       // If in Reshape mode, draw vertex nodes for the selected item
       if (currentTool === 'reshape' && selectedGraphics.length === 1) {
@@ -413,7 +330,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
         for (const pt of nodes) {
           const transPt = primary.transformer.transformPoint(pt);
           ctx.beginPath();
-          ctx.arc(transPt.x, transPt.y, (isTouchDevice ? 8 : 5) / zoomLevel, 0, Math.PI * 2);
+          ctx.arc(transPt.x, transPt.y, (isTouchDevice ? 7 : 5) / zoomLevel, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
         }
@@ -461,7 +378,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
     isTouchDevice,
   ]);
 
-  // Renders InterViews measurement rulers along top and left edges
+  // Renders InterViews CAD measurement rulers along top and left edges
   const renderRulers = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
     const rulerSize = isTouchDevice ? 16 : 20;
 
@@ -525,10 +442,12 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
     if (cursorPos.x >= rulerSize && cursorPos.y >= rulerSize) {
       ctx.strokeStyle = '#38BDF8';
       ctx.lineWidth = 1;
+      // Top tick
       ctx.beginPath();
       ctx.moveTo(cursorPos.x, 0);
       ctx.lineTo(cursorPos.x, rulerSize);
       ctx.stroke();
+      // Left tick
       ctx.beginPath();
       ctx.moveTo(0, cursorPos.y);
       ctx.lineTo(rulerSize, cursorPos.y);
@@ -540,7 +459,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
   const hitTestHandles = (worldPt: Point, isTouch = false): HandleType | null => {
     const bounds = getSelectedBounds();
     if (!bounds) return null;
-    const tol = (isTouch ? 18 : 8) / zoomLevelRef.current;
+    const tol = (isTouch ? 16 : 8) / zoomLevel;
 
     const bx = bounds.x;
     const by = bounds.y;
@@ -548,8 +467,8 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
     const bh = bounds.height;
 
     // Rotation handle
-    const rotDist = (isTouch ? 30 : 20) / zoomLevelRef.current;
-    if (Math.hypot(worldPt.x - (bx + bw / 2), worldPt.y - (by - rotDist)) <= tol * 1.25) {
+    const rotDist = (isTouch ? 28 : 20) / zoomLevel;
+    if (Math.hypot(worldPt.x - (bx + bw / 2), worldPt.y - (by - rotDist)) <= tol * 1.2) {
       return 'rot';
     }
 
@@ -569,18 +488,9 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
   const startInteraction = (clientX: number, clientY: number, isTouch = false, shiftKey = false) => {
     const worldPt = screenToWorld(clientX, clientY);
     const snapped = snapPoint(worldPt);
-    const activeTool = currentToolRef.current;
-    const curGraphics = graphicsRef.current;
-    const curSelected = selectedGraphicsRef.current;
-    const curZoom = zoomLevelRef.current;
-
-    // Check double-click/double-tap to edit text
-    const now = Date.now();
-    const isDoubleTap = now - lastTapRef.current.time < 350 && Math.hypot(clientX - lastTapRef.current.x, clientY - lastTapRef.current.y) < 25;
-    lastTapRef.current = { time: now, x: clientX, y: clientY };
 
     // Pan Tool or Space Key
-    if (activeTool === 'pan' || isSpacePressedRef.current) {
+    if (currentTool === 'pan' || isSpacePressedRef.current) {
       dragStateRef.current = {
         mode: 'pan',
         startX: clientX,
@@ -593,10 +503,9 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
     }
 
     // Polyline / Polygon / B-Spline Multi-Point Placement
-    if (['polyline', 'polygon', 'bspline', 'bspline-closed'].includes(activeTool)) {
-      const closeRadius = (isTouch ? 24 : 14) / curZoom;
-      const pts = inProgressPointsRef.current;
-      if (pts.length >= 2 && Math.hypot(snapped.x - pts[0].x, snapped.y - pts[0].y) <= closeRadius) {
+    if (['polyline', 'polygon', 'bspline', 'bspline-closed'].includes(currentTool)) {
+      const closeRadius = (isTouch ? 20 : 12) / zoomLevel;
+      if (inProgressPoints.length >= 2 && Math.hypot(snapped.x - inProgressPoints[0].x, snapped.y - inProgressPoints[0].y) <= closeRadius) {
         completeMultiPointShape();
         return;
       }
@@ -604,55 +513,13 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       return;
     }
 
-    // Text Tool: either edit tapped existing text or create new text
-    if (activeTool === 'text') {
-      let targetText: TextGraphic | null = null;
-      for (let i = curGraphics.length - 1; i >= 0; i--) {
-        const g = curGraphics[i];
-        if (g.visible && !g.locked && g instanceof TextGraphic && g.containsPoint(worldPt.x, worldPt.y, (isTouch ? 20 : 10) / curZoom)) {
-          targetText = g;
-          break;
-        }
-      }
-
-      if (targetText) {
-        onSelectGraphic(targetText);
-        setEditingText({
-          graphic: targetText,
-          worldPos: { x: targetText.x, y: targetText.y },
-          text: targetText.text,
-        });
-      } else {
-        setEditingText({
-          worldPos: snapped,
-          text: 'InterViews Text',
-        });
-      }
+    // Text Tool Creation
+    if (currentTool === 'text') {
+      setEditingText({
+        worldPos: snapped,
+        text: 'InterViews Text',
+      });
       return;
-    }
-
-    // Check if user clicked on the selected box of a selected TextGraphic in the main window
-    let isClickOnSelectedTextBox = false;
-    let selectedTextGraphic: TextGraphic | null = null;
-
-    if (
-      curSelected.length === 1 &&
-      curSelected[0] instanceof TextGraphic &&
-      !shiftKey &&
-      activeTool === 'select'
-    ) {
-      const selText = curSelected[0] as TextGraphic;
-      const b = selText.getBounds();
-      const tol = (isTouch ? 16 : 8) / curZoom;
-      if (
-        worldPt.x >= b.x - tol &&
-        worldPt.x <= b.x + b.width + tol &&
-        worldPt.y >= b.y - tol &&
-        worldPt.y <= b.y + b.height + tol
-      ) {
-        isClickOnSelectedTextBox = true;
-        selectedTextGraphic = selText;
-      }
     }
 
     // Check Handle Hits on Selection
@@ -672,46 +539,20 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       return;
     }
 
-    // If user clicked inside the selected box of a selected TextGraphic (not on resize/rotation handles)
-    if (isClickOnSelectedTextBox && selectedTextGraphic) {
-      dragStateRef.current = {
-        mode: 'move',
-        startX: snapped.x,
-        startY: snapped.y,
-        currentX: snapped.x,
-        currentY: snapped.y,
-        isTouch,
-        isClickOnSelectedTextBox: true,
-        clickedTextGraphic: selectedTextGraphic,
-      };
-      return;
-    }
-
     // Hit Test Graphics in scene (reverse order: top to bottom)
-    const hitTolerance = (isTouch ? 18 : 8) / curZoom;
+    const hitTolerance = (isTouch ? 16 : 8) / zoomLevel;
     let hitGraphic: Graphic | null = null;
-    for (let i = curGraphics.length - 1; i >= 0; i--) {
-      const g = curGraphics[i];
+    for (let i = graphics.length - 1; i >= 0; i--) {
+      const g = graphics[i];
       if (g.visible && !g.locked && g.containsPoint(worldPt.x, worldPt.y, hitTolerance)) {
         hitGraphic = g;
         break;
       }
     }
 
-    // If double tap on a TextGraphic in Select tool, edit it directly!
-    if (isDoubleTap && hitGraphic instanceof TextGraphic) {
-      onSelectGraphic(hitGraphic);
-      setEditingText({
-        graphic: hitGraphic,
-        worldPos: { x: hitGraphic.x, y: hitGraphic.y },
-        text: hitGraphic.text,
-      });
-      return;
-    }
-
-    if (activeTool === 'select' || activeTool === 'reshape') {
+    if (currentTool === 'select' || currentTool === 'reshape') {
       if (hitGraphic) {
-        const isAlreadySelected = curSelected.some((g) => g.id === hitGraphic!.id);
+        const isAlreadySelected = selectedGraphics.some((g) => g.id === hitGraphic!.id);
         if (!isAlreadySelected && !shiftKey) {
           onSelectGraphic(hitGraphic);
         } else if (shiftKey) {
@@ -726,11 +567,9 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
           currentX: snapped.x,
           currentY: snapped.y,
           isTouch,
-          isClickOnSelectedTextBox: isAlreadySelected && hitGraphic instanceof TextGraphic,
-          clickedTextGraphic: isAlreadySelected && hitGraphic instanceof TextGraphic ? hitGraphic : undefined,
         };
       } else {
-        // Tapped empty space: Marquee or deselect
+        // Clicked/Tapped on empty space: Marquee selection or deselect
         if (!shiftKey) {
           onSelectGraphic(null);
         }
@@ -746,15 +585,15 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       return;
     }
 
-    // Creation Tools: Rect, RoundRect, Ellipse, Line
+    // Creation Tools (Rect, RoundRect, Ellipse, Line)
     let newGraphic: Graphic | null = null;
-    if (activeTool === 'rect') {
+    if (currentTool === 'rect') {
       newGraphic = new RectGraphic(snapped.x, snapped.y, 0, 0, 0);
-    } else if (activeTool === 'roundrect') {
+    } else if (currentTool === 'roundrect') {
       newGraphic = new RectGraphic(snapped.x, snapped.y, 0, 0, 8);
-    } else if (activeTool === 'ellipse') {
+    } else if (currentTool === 'ellipse') {
       newGraphic = new EllipseGraphic(snapped.x, snapped.y, 0, 0);
-    } else if (activeTool === 'line') {
+    } else if (currentTool === 'line') {
       newGraphic = new LineGraphic(snapped.x, snapped.y, snapped.x, snapped.y);
     }
 
@@ -804,20 +643,12 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       const dy = snapped.y - drag.startY;
 
       if (g instanceof RectGraphic) {
-        // Normalize origin so user can drag in ANY quadrant (top-left, bottom-left, top-right, bottom-right)
-        g.x = Math.min(drag.startX, snapped.x);
-        g.y = Math.min(drag.startY, snapped.y);
-        g.width = Math.max(1, Math.abs(dx));
-        g.height = Math.max(1, Math.abs(dy));
+        g.width = dx;
+        g.height = dy;
       } else if (g instanceof EllipseGraphic) {
-        // Bounding-box creation: center is midpoint between initial touch and current touch
-        g.cx = (drag.startX + snapped.x) / 2;
-        g.cy = (drag.startY + snapped.y) / 2;
-        g.rx = Math.max(1, Math.abs(dx) / 2);
-        g.ry = Math.max(1, Math.abs(dy) / 2);
+        g.rx = Math.abs(dx);
+        g.ry = Math.abs(dy);
       } else if (g instanceof LineGraphic) {
-        g.x1 = drag.startX;
-        g.y1 = drag.startY;
         g.x2 = snapped.x;
         g.y2 = snapped.y;
       }
@@ -849,8 +680,12 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
 
       if (h.includes('e')) newW = Math.max(5, b.width + dx);
       if (h.includes('s')) newH = Math.max(5, b.height + dy);
-      if (h.includes('w')) newW = Math.max(5, b.width - dx);
-      if (h.includes('n')) newH = Math.max(5, b.height - dy);
+      if (h.includes('w')) {
+        newW = Math.max(5, b.width - dx);
+      }
+      if (h.includes('n')) {
+        newH = Math.max(5, b.height - dy);
+      }
 
       const sx = newW / b.width;
       const sy = newH / b.height;
@@ -882,21 +717,6 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
     const drag = dragStateRef.current;
     if (!drag) return;
 
-    // If user clicked/tapped on the selected box of a TextGraphic (released without dragging across canvas)
-    if (drag.isClickOnSelectedTextBox && drag.clickedTextGraphic) {
-      const dist = Math.hypot(drag.currentX - drag.startX, drag.currentY - drag.startY);
-      if (dist < 5) {
-        const tg = drag.clickedTextGraphic;
-        setEditingText({
-          graphic: tg,
-          worldPos: { x: tg.x, y: tg.y },
-          text: tg.text,
-        });
-        dragStateRef.current = null;
-        return;
-      }
-    }
-
     if (drag.mode === 'marquee') {
       const mx = Math.min(drag.startX, drag.currentX);
       const my = Math.min(drag.startY, drag.currentY);
@@ -904,7 +724,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       const mh = Math.abs(drag.currentY - drag.startY);
 
       if (mw > 6 && mh > 6) {
-        const hits = graphicsRef.current.filter((g) => {
+        const hits = graphics.filter((g) => {
           const b = g.getBounds();
           return (
             b.x >= mx &&
@@ -917,23 +737,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       }
     }
 
-    if (drag.mode === 'create' && drag.activeGraphic) {
-      const g = drag.activeGraphic;
-      // If user tapped without dragging far, assign comfortable default dimensions
-      if (g instanceof RectGraphic && g.width <= 6 && g.height <= 6) {
-        g.width = 110;
-        g.height = 70;
-        onUpdateGraphic(() => {});
-      } else if (g instanceof EllipseGraphic && g.rx <= 4 && g.ry <= 4) {
-        g.rx = 45;
-        g.ry = 45;
-        onUpdateGraphic(() => {});
-      } else if (g instanceof LineGraphic && Math.hypot(g.x2 - g.x1, g.y2 - g.y1) <= 6) {
-        g.x2 = g.x1 + 100;
-        g.y2 = g.y1 + 60;
-        onUpdateGraphic(() => {});
-      }
-
+    if (drag.mode === 'create') {
       onToolComplete?.();
     }
 
@@ -950,7 +754,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       e.preventDefault();
 
       if (e.touches.length === 2) {
-        // Multi-touch pinch/pan gesture
+        // Start multi-touch pinch/pan gesture
         dragStateRef.current = null;
         const t1 = e.touches[0];
         const t2 = e.touches[1];
@@ -991,20 +795,21 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
         const pinch = pinchRef.current;
         if (pinch.lastDistance > 0) {
           const ratio = dist / pinch.lastDistance;
-          const curZoom = zoomLevelRef.current;
-          const newZoom = Math.max(0.2, Math.min(6, curZoom * ratio));
+          const newZoom = Math.max(0.2, Math.min(6, zoomLevel * ratio));
 
-          // Center zoom at touch midpoint
+          // Compute zoom center relative to canvas
           const rect = canvas.getBoundingClientRect();
           const canvasMidX = mid.x - rect.left;
           const canvasMidY = mid.y - rect.top;
 
+          // Pan delta from midpoint shift
           const dx = mid.x - pinch.lastMidpoint.x;
           const dy = mid.y - pinch.lastMidpoint.y;
 
+          // Update pan to keep anchor under fingers
           setPanOffset((prev) => ({
-            x: canvasMidX - (canvasMidX - prev.x) * (newZoom / curZoom) + dx,
-            y: canvasMidY - (canvasMidY - prev.y) * (newZoom / curZoom) + dy,
+            x: canvasMidX - (canvasMidX - prev.x) * (newZoom / zoomLevel) + dx,
+            y: canvasMidY - (canvasMidY - prev.y) * (newZoom / zoomLevel) + dy,
           }));
 
           onZoomChange?.(newZoom);
@@ -1052,47 +857,11 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       canvas.removeEventListener('touchend', handleTouchEnd);
       canvas.removeEventListener('touchcancel', handleTouchCancel);
     };
-  }, [onZoomChange]);
+  }, [zoomLevel, panOffset, onZoomChange]);
 
-  // Mouse Event Handlers for Desktop
+  // Mouse Event Handlers (Desktop Mouse)
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    // If double clicked with mouse on a TextGraphic, open text editor modal
-    if (e.detail === 2) {
-      const worldPt = screenToWorld(e.clientX, e.clientY);
-      const curGraphics = graphicsRef.current;
-      const curZoom = zoomLevelRef.current;
-      for (let i = curGraphics.length - 1; i >= 0; i--) {
-        const g = curGraphics[i];
-        if (g.visible && !g.locked && g instanceof TextGraphic && g.containsPoint(worldPt.x, worldPt.y, 14 / curZoom)) {
-          onSelectGraphic(g);
-          setEditingText({
-            graphic: g,
-            worldPos: { x: g.x, y: g.y },
-            text: g.text,
-          });
-          return;
-        }
-      }
-    }
     startInteraction(e.clientX, e.clientY, false, e.shiftKey);
-  };
-
-  const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const worldPt = screenToWorld(e.clientX, e.clientY);
-    const curGraphics = graphicsRef.current;
-    const curZoom = zoomLevelRef.current;
-    for (let i = curGraphics.length - 1; i >= 0; i--) {
-      const g = curGraphics[i];
-      if (g.visible && !g.locked && g instanceof TextGraphic && g.containsPoint(worldPt.x, worldPt.y, 14 / curZoom)) {
-        onSelectGraphic(g);
-        setEditingText({
-          graphic: g,
-          worldPos: { x: g.x, y: g.y },
-          text: g.text,
-        });
-        return;
-      }
-    }
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1105,22 +874,20 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
 
   // Completes multi-point shape (polyline, polygon, B-spline)
   const completeMultiPointShape = () => {
-    const pts = inProgressPointsRef.current;
-    if (pts.length < 2) {
+    if (inProgressPoints.length < 2) {
       setInProgressPoints([]);
       return;
     }
 
-    const tool = currentToolRef.current;
     let g: Graphic | null = null;
-    if (tool === 'polyline') {
-      g = new PolyGraphic(pts, false);
-    } else if (tool === 'polygon') {
-      g = new PolyGraphic(pts, true);
-    } else if (tool === 'bspline') {
-      g = new BSplineGraphic(pts, false);
-    } else if (tool === 'bspline-closed') {
-      g = new BSplineGraphic(pts, true);
+    if (currentTool === 'polyline') {
+      g = new PolyGraphic(inProgressPoints, false);
+    } else if (currentTool === 'polygon') {
+      g = new PolyGraphic(inProgressPoints, true);
+    } else if (currentTool === 'bspline') {
+      g = new BSplineGraphic(inProgressPoints, false);
+    } else if (currentTool === 'bspline-closed') {
+      g = new BSplineGraphic(inProgressPoints, true);
     }
 
     if (g) {
@@ -1135,6 +902,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
+      // Zoom centered at cursor
       const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
       const newZoom = Math.max(0.2, Math.min(6, zoomLevel * zoomFactor));
       const rect = canvasRef.current!.getBoundingClientRect();
@@ -1147,6 +915,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       }));
       onZoomChange?.(newZoom);
     } else {
+      // Scroll pan
       setPanOffset((prev) => ({
         x: prev.x - e.deltaX,
         y: prev.y - e.deltaY,
@@ -1170,13 +939,9 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
     setPanOffset({ x: 50, y: 50 });
   };
 
-  // Keyboard listener
+  // Keyboard shortcut listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
-        return;
-      }
       if (e.code === 'Space') {
         isSpacePressedRef.current = true;
       }
@@ -1199,53 +964,7 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [editingText, inProgressPoints]);
-
-  // Insert newline at caret position and maintain focus
-  const handleInsertNewline = () => {
-    const el = textInputRef.current;
-    if (!el) {
-      setEditingText((prev) => (prev ? { ...prev, text: prev.text + '\n' } : null));
-      return;
-    }
-    const start = el.selectionStart ?? el.value.length;
-    const end = el.selectionEnd ?? el.value.length;
-    const val = el.value;
-    const updated = val.substring(0, start) + '\n' + val.substring(end);
-    setEditingText((prev) => (prev ? { ...prev, text: updated } : null));
-    requestAnimationFrame(() => {
-      el.focus();
-      el.selectionStart = el.selectionEnd = start + 1;
-    });
-  };
-
-  // Saves either newly created text or updates existing text graphic
-  const handleSaveText = () => {
-    if (!editingText) return;
-
-    if (editingText.graphic) {
-      // Editing existing graphic
-      const target = editingText.graphic;
-      target.text = editingText.text;
-      onUpdateGraphic((g) => {
-        if (g.id === target.id && g instanceof TextGraphic) {
-          g.text = editingText.text;
-        }
-      });
-    } else if (editingText.text.trim()) {
-      // Placing new graphic
-      const tg = new TextGraphic(
-        editingText.text,
-        editingText.worldPos.x,
-        editingText.worldPos.y
-      );
-      onAddGraphic(tg);
-      onSelectGraphic(tg);
-      onToolComplete?.();
-    }
-    setEditingText(null);
-    onCloseTextEditor?.();
-  };
+  }, [editingText, inProgressPoints, currentTool]);
 
   return (
     <div
@@ -1257,7 +976,6 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onDoubleClick={handleDoubleClick}
         onWheel={handleWheel}
         style={{ touchAction: 'none' }}
         className="w-full h-full block cursor-crosshair select-none"
@@ -1278,14 +996,14 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
           </span>
           <button
             onClick={completeMultiPointShape}
-            className="flex items-center gap-1 px-3 py-1 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs rounded-md min-h-[38px] cursor-pointer"
+            className="flex items-center gap-1 px-3 py-1 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs rounded-md min-h-[36px] cursor-pointer"
           >
             <Check className="w-3.5 h-3.5" />
             <span>Finish Shape</span>
           </button>
           <button
             onClick={() => setInProgressPoints([])}
-            className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-md min-h-[38px] cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-md min-h-[36px] cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
             <span>Cancel</span>
@@ -1362,127 +1080,42 @@ export const DrawCanvas: React.FC<DrawCanvasProps> = ({
         )}
       </div>
 
-      {/* Multi-Line Text Editing Modal with Enter Key Support & Mobile Keyboard Optimization */}
+      {/* Text Editing Inline Modal */}
       {editingText && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setEditingText(null);
-              onCloseTextEditor?.();
-            }
-          }}
-          className="absolute inset-0 z-50 flex items-center sm:items-start justify-center bg-black/75 p-3 sm:p-5 sm:pt-16 backdrop-blur-xs select-text touch-auto overflow-y-auto"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-slate-900 border-2 border-slate-700 p-5 sm:p-6 rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col gap-4 select-text touch-auto my-auto sm:my-0 animate-in fade-in zoom-in-95 duration-150"
-          >
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
-                  <Type className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider">
-                    {editingText.graphic ? 'Edit Multi-Line Text' : 'Insert Multi-Line Text'}
-                  </h3>
-                  <p className="text-[11px] text-slate-400">InterViews idraw Vector Text Editor</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingText(null);
-                  onCloseTextEditor?.();
-                }}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
-                title="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Quick Action Toolbar: Insert Newline & Live Counters */}
-            <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950 px-3.5 py-2.5 rounded-lg border border-slate-800">
-              <button
-                type="button"
-                onClick={handleInsertNewline}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-sky-300 font-mono text-xs rounded-md border border-slate-700 cursor-pointer min-h-[36px] transition-colors"
-                title="Insert a new line at cursor position (same as pressing Enter on keyboard)"
-              >
-                <CornerDownLeft className="w-3.5 h-3.5 text-sky-400" />
-                <span className="font-semibold">↵ New Line</span>
-              </button>
-
-              <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-                <span className="bg-slate-900 px-2.5 py-1 rounded border border-slate-800 text-slate-200 font-semibold">
-                  {editingText.text.split('\n').length} lines
-                </span>
-                <span>•</span>
-                <span className="bg-slate-900 px-2.5 py-1 rounded border border-slate-800 text-slate-300">
-                  {editingText.text.length} characters
-                </span>
-              </div>
-            </div>
-
-            {/* Generous Multi-line Textarea with Enter Key Enabled */}
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-slate-900 border-2 border-slate-700 p-4 rounded-xl shadow-2xl max-w-sm w-full flex flex-col gap-3">
+            <span className="text-xs font-semibold text-slate-300 uppercase">Insert Text</span>
             <textarea
-              ref={textInputRef}
               autoFocus
-              enterKeyHint="enter"
-              autoCapitalize="sentences"
-              autoComplete="off"
-              autoCorrect="on"
-              spellCheck="false"
-              wrap="soft"
               value={editingText.text}
               onChange={(e) => setEditingText({ ...editingText, text: e.target.value })}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                // Ctrl+Enter or Cmd+Enter submits as keyboard shortcut
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  handleSaveText();
-                  return;
-                }
-                // Plain Enter key naturally inserts a newline character in the textarea
-              }}
-              rows={10}
-              className="w-full bg-slate-950 border-2 border-slate-700 focus:border-sky-400 focus:ring-1 focus:ring-sky-400 rounded-xl p-4 text-base text-slate-100 font-mono leading-relaxed outline-hidden min-h-[220px] resize-y select-text shadow-inner placeholder:text-slate-600"
-              style={{ width: '100%', userSelect: 'text', WebkitUserSelect: 'text', touchAction: 'manipulation' }}
-              placeholder={"Type your text here...\nPress the Enter key on your keyboard to start a new line.\nLine 2\nLine 3\nLine 4\nLine 5"}
+              rows={3}
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm text-slate-100 font-mono outline-hidden"
             />
-
-            <div className="flex items-center justify-between text-xs text-slate-400 font-mono px-1">
-              <span className="flex items-center gap-1.5">
-                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-semibold text-xs">
-                  Enter ↵
-                </kbd>
-                <span>key on keyboard inserts new line</span>
-              </span>
-              <span className="hidden sm:inline text-slate-500">
-                <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-400 text-xs">Ctrl+Enter</kbd> to save
-              </span>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+            <div className="flex justify-end gap-2 pt-1">
               <button
-                type="button"
-                onClick={() => {
-                  setEditingText(null);
-                  onCloseTextEditor?.();
-                }}
-                className="px-4 py-2 min-h-[44px] text-xs font-medium text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
+                onClick={() => setEditingText(null)}
+                className="px-4 py-2 min-h-[44px] text-xs text-slate-400 hover:text-white cursor-pointer"
               >
                 Cancel
               </button>
               <button
-                type="button"
-                onClick={handleSaveText}
-                className="px-5 py-2 min-h-[44px] text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-lg cursor-pointer flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all"
+                onClick={() => {
+                  if (editingText.text.trim()) {
+                    const tg = new TextGraphic(
+                      editingText.text,
+                      editingText.worldPos.x,
+                      editingText.worldPos.y
+                    );
+                    onAddGraphic(tg);
+                    onSelectGraphic(tg);
+                    onToolComplete?.();
+                  }
+                  setEditingText(null);
+                }}
+                className="px-5 py-2 min-h-[44px] text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-lg cursor-pointer flex items-center justify-center"
               >
-                <Check className="w-3.5 h-3.5" />
-                <span>{editingText.graphic ? 'Apply Changes' : 'Place Text'}</span>
+                Place Text
               </button>
             </div>
           </div>

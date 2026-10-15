@@ -371,20 +371,14 @@ export const IVFieldEditor: React.FC<IVFieldEditorProps> = ({
           <textarea
             value={value}
             rows={rows}
-            enterKeyHint="enter"
-            autoCapitalize="sentences"
-            wrap="soft"
-            onKeyDown={(e) => e.stopPropagation()}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className="w-full bg-transparent text-sm text-slate-100 font-mono outline-hidden resize-y min-h-[60px] p-1.5 placeholder:text-slate-600"
+            className="w-full bg-transparent text-sm text-slate-100 font-mono outline-hidden resize-none p-1.5 placeholder:text-slate-600"
           />
         ) : (
           <input
             type="text"
             value={value}
-            enterKeyHint="done"
-            onKeyDown={(e) => e.stopPropagation()}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             className="w-full bg-transparent text-sm text-slate-100 font-mono outline-hidden px-2 py-1.5 placeholder:text-slate-600"

@@ -642,11 +642,9 @@ export class TextGraphic extends Graphic {
 
   public getLocalBounds(): RectBounds {
     const lines = this.text.split('\n');
-    const lineHeight = this.fontSize * 1.35;
-    const lineLengths = lines.map((l) => Math.max(1, l.length));
-    const maxLen = lines.length > 0 ? Math.max(...lineLengths) : 1;
-    const estWidth = Math.max(64, maxLen * this.fontSize * 0.65);
-    const estHeight = Math.max(lineHeight * 1.2, lines.length * lineHeight);
+    const lineHeight = this.fontSize * 1.3;
+    const estWidth = Math.max(...lines.map((l) => l.length * this.fontSize * 0.6), 20);
+    const estHeight = lines.length * lineHeight;
 
     let startX = this.x;
     if (this.align === 'center') startX = this.x - estWidth / 2;
@@ -683,25 +681,13 @@ export class TextGraphic extends Graphic {
     const transform = this.transformer.toSVG();
     const fill = this.style.fillColor || '#000000';
     const lines = this.text.split('\n');
-    const lineHeight = this.fontSize * 1.35;
+    const lineHeight = this.fontSize * 1.3;
 
-    const escapeXml = (str: string) =>
-      str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
-
-    const anchor = this.align === 'center' ? 'middle' : this.align === 'right' ? 'end' : 'start';
     const tspans = lines
-      .map(
-        (line, i) =>
-          `<tspan x="${this.x}" dy="${i === 0 ? '0.85em' : `${lineHeight}px`}">${escapeXml(line || ' ')}</tspan>`
-      )
+      .map((line, i) => `<tspan x="${this.x}" y="${this.y + (i + 1) * lineHeight}">${line}</tspan>`)
       .join('');
 
-    return `<text x="${this.x}" y="${this.y}" font-family="${escapeXml(this.fontFamily)}" font-size="${this.fontSize}" font-weight="${this.fontWeight}" fill="${fill}" text-anchor="${anchor}" transform="${transform}">${tspans}</text>`;
+    return `<text x="${this.x}" y="${this.y}" font-family="${this.fontFamily}" font-size="${this.fontSize}" font-weight="${this.fontWeight}" fill="${fill}" text-anchor="${this.align === 'center' ? 'middle' : this.align}" transform="${transform}">${tspans}</text>`;
   }
 
   public toJSON(): Record<string, any> {

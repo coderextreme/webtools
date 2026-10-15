@@ -29,8 +29,6 @@ import {
   Ungroup,
   RotateCw,
   X,
-  CornerDownLeft,
-  Maximize2,
 } from 'lucide-react';
 import { IVSlider, IVStepper } from '../iv/look/widgets';
 
@@ -53,7 +51,6 @@ export interface InspectorProps {
   onSelectGraphic: (g: Graphic, multi?: boolean) => void;
   onToggleVisibility: (g: Graphic) => void;
   onToggleLock: (g: Graphic) => void;
-  onOpenTextModal?: (graphic: TextGraphic) => void;
 }
 
 const PRESET_COLORS = [
@@ -90,7 +87,6 @@ export const Inspector: React.FC<InspectorProps> = ({
   onSelectGraphic,
   onToggleVisibility,
   onToggleLock,
-  onOpenTextModal,
 }) => {
   const hasSelection = selectedGraphics.length > 0;
   const primary = hasSelection ? selectedGraphics[0] : null;
@@ -422,16 +418,8 @@ export const Inspector: React.FC<InspectorProps> = ({
 
             {/* Specific Text Settings */}
             {primary instanceof TextGraphic && (
-              <div className="flex flex-col gap-2.5 pt-2 border-t border-slate-800">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-400 text-[11px]">Multi-Line Text</span>
-                  <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-500">
-                    <span>{primary.text.split('\n').length} line{primary.text.split('\n').length !== 1 ? 's' : ''}</span>
-                    <span>•</span>
-                    <span>{primary.text.length} chars</span>
-                  </div>
-                </div>
-
+              <div className="flex flex-col gap-2 pt-2 border-t border-slate-800">
+                <span className="font-medium text-slate-400 text-[11px]">Text Properties</span>
                 <textarea
                   value={primary.text}
                   onChange={(e) =>
@@ -439,102 +427,9 @@ export const Inspector: React.FC<InspectorProps> = ({
                       if (g instanceof TextGraphic) g.text = e.target.value;
                     })
                   }
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                  }}
-                  rows={8}
-                  enterKeyHint="enter"
-                  autoCapitalize="sentences"
-                  autoComplete="off"
-                  autoCorrect="on"
-                  wrap="soft"
-                  placeholder="Enter multi-line text (Press Enter on keyboard for new line)..."
-                  className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 text-slate-100 font-mono text-sm outline-hidden focus:border-sky-400 focus:ring-1 focus:ring-sky-400 resize-y min-h-[160px] leading-relaxed"
+                  rows={2}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xs p-2 text-slate-100 font-mono text-xs outline-hidden"
                 />
-
-                {/* Quick Action Buttons: Insert Newline & Open Canvas Modal */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onUpdateGraphic((g) => {
-                        if (g instanceof TextGraphic) g.text = g.text + '\n';
-                      });
-                    }}
-                    className="flex-1 py-1.5 px-2 bg-slate-950 hover:bg-slate-800 text-sky-400 font-mono text-[11px] rounded-xs border border-slate-800 flex items-center justify-center gap-1 cursor-pointer min-h-[34px] transition-colors"
-                    title="Insert a newline at the end (same as pressing Enter)"
-                  >
-                    <CornerDownLeft className="w-3.5 h-3.5" />
-                    <span>↵ New Line</span>
-                  </button>
-                  {onOpenTextModal && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenTextModal(primary)}
-                      className="py-1.5 px-2.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-[11px] font-medium rounded-xs border border-sky-500/30 flex items-center justify-center gap-1 cursor-pointer min-h-[34px] transition-colors"
-                      title="Open full-featured canvas text editor modal"
-                    >
-                      <Maximize2 className="w-3 h-3" />
-                      <span>Full Editor</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Text Alignment */}
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] text-slate-400 font-medium">Text Alignment</span>
-                  <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xs border border-slate-800">
-                    <button
-                      type="button"
-                      title="Align Left"
-                      onClick={() =>
-                        onUpdateGraphic((g) => {
-                          if (g instanceof TextGraphic) g.align = 'left';
-                        })
-                      }
-                      className={`p-1.5 flex items-center justify-center rounded-xs cursor-pointer min-h-[32px] transition-colors ${
-                        primary.align === 'left'
-                          ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 font-bold'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <AlignLeft className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Align Center"
-                      onClick={() =>
-                        onUpdateGraphic((g) => {
-                          if (g instanceof TextGraphic) g.align = 'center';
-                        })
-                      }
-                      className={`p-1.5 flex items-center justify-center rounded-xs cursor-pointer min-h-[32px] transition-colors ${
-                        primary.align === 'center'
-                          ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 font-bold'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <AlignCenter className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Align Right"
-                      onClick={() =>
-                        onUpdateGraphic((g) => {
-                          if (g instanceof TextGraphic) g.align = 'right';
-                        })
-                      }
-                      className={`p-1.5 flex items-center justify-center rounded-xs cursor-pointer min-h-[32px] transition-colors ${
-                        primary.align === 'right'
-                          ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 font-bold'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <AlignRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
                 <IVStepper
                   label="Font Size"
                   value={primary.fontSize}
