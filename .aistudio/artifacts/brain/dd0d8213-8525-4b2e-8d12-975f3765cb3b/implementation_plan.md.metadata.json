@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan for porting X11 ivtools / InterViews to HTML, JavaScript, Canvas, and CSS, featuring a comprehensive InterViews GUI toolkit component showcase, full vector drawing canvas engine (idraw), TeX box-and-glue layout visualizer, and SVG/JSON/PNG export.",
+  "updatedAt":  "2026-10-12T06:50:19.625662090Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

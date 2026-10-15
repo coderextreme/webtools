@@ -1,0 +1,6 @@
+{
+  "name": "InterViews Web: ivtools X11 Vector Studio & GUI Toolkit",
+  "description": "Browser port of the classic X11 InterViews / ivtools C++ framework featuring the full IV-look GUI toolkit showcase, TeX box-and-glue layout visualizer, and idraw vector graphics drawing studio with SVG, JSON, and PNG export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
