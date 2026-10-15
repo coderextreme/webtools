@@ -184,10 +184,11 @@ export const BoxLayoutLab: React.FC = () => {
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
             Rendered InterViews HBox Output
           </span>
-          <div
-            style={{ width: `${containerWidth}px` }}
-            className="h-28 bg-slate-950 border-2 border-t-white/20 border-l-white/20 border-b-black/80 border-r-black/80 rounded-xs relative overflow-hidden transition-all duration-75 flex shadow-inner"
-          >
+          <div className="w-full overflow-x-auto pb-3 scrollbar-thin">
+            <div
+              style={{ width: `${containerWidth}px` }}
+              className="h-28 bg-slate-950 border-2 border-t-white/20 border-l-white/20 border-b-black/80 border-r-black/80 rounded-xs relative overflow-hidden transition-all duration-75 flex shadow-inner shrink-0"
+            >
             {solution.items.map((it) => {
               const isGlue = it.type === 'glue';
               return (
@@ -237,6 +238,7 @@ export const BoxLayoutLab: React.FC = () => {
                 </div>
               );
             })}
+            </div>
           </div>
         </div>
 

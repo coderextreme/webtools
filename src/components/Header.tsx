@@ -2,6 +2,7 @@
  * InterViews Web Top Navigation Header
  * Strictly follows the Top Bar Contract:
  * [Brand wordmark] - [4 single-line nav links] - [1 primary action + controls]
+ * Fully responsive on mobile, tablet, and desktop with touch target compliance.
  */
 
 import React from 'react';
@@ -60,13 +61,13 @@ export const Header: React.FC<HeaderProps> = ({
   onResetZoom,
 }) => {
   return (
-    <header className="flex items-center justify-between gap-8 px-6 py-2.5 border-b border-slate-800 bg-slate-900/95 backdrop-blur-xs select-none z-30 shrink-0">
+    <header className="flex items-center justify-between gap-4 md:gap-8 px-3 sm:px-6 py-2 border-b border-slate-800 bg-slate-900/95 backdrop-blur-md select-none z-30 shrink-0">
       {/* Zone 1: Brand Wordmark (Single text element) */}
-      <div className="flex items-center gap-3 shrink-0">
-        <div className="w-6 h-6 rounded-xs bg-sky-500 flex items-center justify-center font-bold text-slate-950 text-xs shadow-xs">
+      <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+        <div className="w-7 h-7 sm:w-6 sm:h-6 rounded-xs bg-sky-500 flex items-center justify-center font-bold text-slate-950 text-xs shadow-xs">
           IV
         </div>
-        <span className="text-base font-bold tracking-tight text-slate-100 whitespace-nowrap shrink-0">
+        <span className="text-sm sm:text-base font-bold tracking-tight text-slate-100 whitespace-nowrap shrink-0">
           InterViews Web
         </span>
         <span className="hidden xl:inline text-[11px] text-slate-400 font-mono">
@@ -74,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
         </span>
       </div>
 
-      {/* Zone 2: 4 Single-Line Navigation Links */}
+      {/* Zone 2: 4 Single-Line Navigation Links (Desktop/Tablet) */}
       <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-slate-300">
         <button
           onClick={() => onTabChange('idraw')}
@@ -122,10 +123,10 @@ export const Header: React.FC<HeaderProps> = ({
       </nav>
 
       {/* Zone 3: Actions & Controls */}
-      <div className="flex items-center gap-2.5 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
         {/* Quick Tools for idraw */}
         {currentTab === 'idraw' && (
-          <div className="hidden sm:flex items-center gap-1 border-r border-slate-800 pr-2.5 mr-1">
+          <div className="hidden lg:flex items-center gap-1 border-r border-slate-800 pr-2.5 mr-1">
             <button
               title="Undo (Ctrl+Z)"
               disabled={!canUndo}
@@ -185,21 +186,41 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        {/* Theme Toggle */}
+        {/* Small Screen Quick Buttons */}
+        {currentTab === 'idraw' && (
+          <div className="flex lg:hidden items-center gap-1">
+            <button
+              title="Templates"
+              onClick={onOpenTemplates}
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-slate-300 hover:text-white active:bg-slate-800 cursor-pointer"
+            >
+              <FolderOpen className="w-4 h-4" />
+            </button>
+            <button
+              title="Clear Canvas"
+              onClick={onClearCanvas}
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-slate-300 hover:text-red-400 active:bg-slate-800 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Theme Toggle (Min 44x44px hitbox) */}
         <button
           title={isDarkTheme ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
           onClick={onToggleTheme}
-          className="p-1.5 rounded-xs text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
         >
-          {isDarkTheme ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+          {isDarkTheme ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
 
         {/* Primary CTA Action Button */}
         <button
           onClick={onOpenExport}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-950 bg-sky-400 hover:bg-sky-300 rounded-xs transition-colors whitespace-nowrap shrink-0 shadow-xs cursor-pointer"
+          className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 min-h-[44px] text-xs font-semibold text-slate-950 bg-sky-400 hover:bg-sky-300 active:bg-sky-500 rounded-md transition-colors whitespace-nowrap shrink-0 shadow-sm cursor-pointer"
         >
-          <Download className="w-3.5 h-3.5" />
+          <Download className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
           <span>Export Art</span>
         </button>
       </div>

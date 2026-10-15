@@ -1,6 +1,7 @@
 /**
  * InterViews idraw Tool Palette
- * Ported from src/IV-look/ and idraw tool selection panel
+ * Responsive tool selection panel supporting vertical workstation sidebar on desktop
+ * and horizontal thumb-friendly scrollable tool dock on mobile & tablet.
  */
 
 import React from 'react';
@@ -36,6 +37,7 @@ export type DrawingTool =
 export interface ToolPaletteProps {
   currentTool: DrawingTool;
   onSelectTool: (tool: DrawingTool) => void;
+  orientation?: 'auto' | 'vertical' | 'horizontal';
 }
 
 interface ToolDefinition {
@@ -105,7 +107,12 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({ currentTool, onSelectT
       id: 'bspline-closed',
       name: 'Closed B-Spline',
       shortcut: 'C',
-      icon: <div className="relative"><Spline className="w-4 h-4" /><div className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-current" /></div>,
+      icon: (
+        <div className="relative">
+          <Spline className="w-4 h-4" />
+          <div className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-current" />
+        </div>
+      ),
     },
     {
       id: 'text',
@@ -128,32 +135,60 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({ currentTool, onSelectT
   ];
 
   return (
-    <aside className="w-14 bg-slate-900 border-r border-slate-800 flex flex-col items-center py-3 gap-1 select-none shrink-0 z-20">
-      <div className="text-[9px] font-mono uppercase tracking-wider text-slate-500 mb-1">
-        Tools
-      </div>
-      <div className="flex flex-col gap-1 w-full px-2">
+    <>
+      {/* Desktop Vertical Sidebar (lg screens and wider) */}
+      <aside className="hidden lg:flex w-14 bg-slate-900 border-r border-slate-800 flex-col items-center py-3 gap-1 select-none shrink-0 z-20">
+        <div className="text-[9px] font-mono uppercase tracking-wider text-slate-500 mb-1">
+          Tools
+        </div>
+        <div className="flex flex-col gap-1 w-full px-2">
+          {tools.map((tool) => {
+            const isActive = currentTool === tool.id;
+            return (
+              <button
+                key={tool.id}
+                title={`${tool.name} (${tool.shortcut})`}
+                onClick={() => onSelectTool(tool.id)}
+                className={`w-10 h-10 rounded-xs flex flex-col items-center justify-center transition-all cursor-pointer relative group ${
+                  isActive
+                    ? 'bg-sky-500 text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
+                }`}
+              >
+                {tool.icon}
+                <span
+                  className={`text-[8px] font-mono leading-none mt-0.5 ${
+                    isActive ? 'text-slate-950' : 'text-slate-400'
+                  }`}
+                >
+                  {tool.shortcut}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      {/* Mobile & Tablet Horizontal Tool Dock (< lg screens) */}
+      <div className="lg:hidden w-full bg-slate-900/95 border-b border-slate-800 px-2 py-1.5 flex items-center gap-1.5 overflow-x-auto select-none z-20 shrink-0 backdrop-blur-md shadow-md scrollbar-none">
         {tools.map((tool) => {
           const isActive = currentTool === tool.id;
           return (
             <button
-              key={tool.id}
-              title={`${tool.name} (${tool.shortcut})`}
+              key={`m-${tool.id}`}
               onClick={() => onSelectTool(tool.id)}
-              className={`w-10 h-10 rounded-xs flex flex-col items-center justify-center transition-all cursor-pointer relative group ${
+              className={`min-w-[44px] min-h-[44px] px-2.5 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 ${
                 isActive
-                  ? 'bg-sky-500 text-slate-950 font-bold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
+                  ? 'bg-sky-500 text-slate-950 font-bold shadow-md'
+                  : 'bg-slate-950/60 text-slate-300 border border-slate-800 active:bg-slate-800'
               }`}
             >
               {tool.icon}
-              <span className={`text-[8px] font-mono leading-none mt-0.5 ${isActive ? 'text-slate-950' : 'text-slate-400'}`}>
-                {tool.shortcut}
-              </span>
+              <span className="text-xs whitespace-nowrap">{tool.name.split(' ')[0]}</span>
             </button>
           );
         })}
       </div>
-    </aside>
+    </>
   );
 };

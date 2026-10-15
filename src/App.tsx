@@ -1,7 +1,8 @@
 /**
  * InterViews Web Main Application
  * Integrates the X11 ivtools architecture into modern TypeScript,
- * HTML5 Canvas, and React.
+ * HTML5 Canvas, and React with full responsive layout and
+ * single- and multi-touch (pinch-zoom and pan) input capabilities.
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -18,6 +19,7 @@ import { BoxLayoutLab } from './components/BoxLayoutLab';
 import { ExportModal } from './components/ExportModal';
 import { TemplatesModal } from './components/TemplatesModal';
 import { ArchitectureDocsModal } from './components/ArchitectureDocsModal';
+import { Palette, Sliders, ArrowRightLeft, BookOpen } from 'lucide-react';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<WorkspaceTab>('idraw');
@@ -35,6 +37,9 @@ export default function App() {
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [snapToGrid, setSnapToGrid] = useState<boolean>(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+
+  // Inspector Drawer State for Mobile / Tablet
+  const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(false);
 
   // Modals
   const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
@@ -376,7 +381,7 @@ export default function App() {
 
   return (
     <div
-      className={`h-screen w-screen flex flex-col overflow-hidden font-sans ${
+      className={`h-screen w-screen flex flex-col overflow-hidden font-sans select-none ${
         isDarkTheme ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
       }`}
     >
@@ -408,39 +413,50 @@ export default function App() {
       />
 
       {/* Main Workspace Content */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         {currentTab === 'idraw' && (
           <>
-            {/* Left Tool Palette */}
+            {/* Tool Palette (Desktop vertical sidebar / Mobile horizontal dock) */}
             <ToolPalette
               currentTool={currentTool}
               onSelectTool={setCurrentTool}
             />
 
-            {/* Center Canvas */}
-            <DrawCanvas
-              graphics={graphics}
-              selectedGraphics={selectedGraphics}
-              currentTool={currentTool}
-              isDarkTheme={isDarkTheme}
-              showGrid={showGrid}
-              snapToGrid={snapToGrid}
-              zoomLevel={zoomLevel}
-              onSelectGraphic={handleSelectGraphic}
-              onSelectMultiple={handleSelectMultiple}
-              onAddGraphic={handleAddGraphic}
-              onUpdateGraphic={handleUpdateGraphic}
-              onToolComplete={() => {
-                if (currentTool !== 'select' && currentTool !== 'pan') {
-                  setCurrentTool('select');
-                }
-              }}
-            />
+            {/* Center Canvas Viewport */}
+            <div className="flex-1 relative overflow-hidden flex flex-col h-full w-full">
+              <DrawCanvas
+                graphics={graphics}
+                selectedGraphics={selectedGraphics}
+                currentTool={currentTool}
+                isDarkTheme={isDarkTheme}
+                showGrid={showGrid}
+                snapToGrid={snapToGrid}
+                zoomLevel={zoomLevel}
+                onZoomChange={setZoomLevel}
+                onSelectGraphic={handleSelectGraphic}
+                onSelectMultiple={handleSelectMultiple}
+                onAddGraphic={handleAddGraphic}
+                onUpdateGraphic={handleUpdateGraphic}
+                onToolComplete={() => {
+                  if (currentTool !== 'select' && currentTool !== 'pan') {
+                    setCurrentTool('select');
+                  }
+                }}
+                onToggleInspector={() => setIsInspectorOpen((prev) => !prev)}
+                isInspectorOpen={isInspectorOpen}
+                canUndo={undoStack.length > 0}
+                canRedo={redoStack.length > 0}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+              />
+            </div>
 
-            {/* Right Property Inspector Dock */}
+            {/* Property Inspector Dock (Sidebar on desktop, Slide-up Drawer on mobile) */}
             <Inspector
               selectedGraphics={selectedGraphics}
               allGraphics={graphics}
+              isOpen={isInspectorOpen}
+              onClose={() => setIsInspectorOpen(false)}
               onUpdateGraphic={handleUpdateGraphic}
               onDeleteSelected={handleDeleteSelected}
               onDuplicateSelected={handleDuplicateSelected}
@@ -465,6 +481,47 @@ export default function App() {
         {/* TeX Box & Glue Interactive Layout Visualizer */}
         {currentTab === 'boxglue' && <BoxLayoutLab />}
       </div>
+
+      {/* Mobile Fixed Bottom Navigation Bar (Pattern 1 from Mobile Guidelines) */}
+      <nav className="md:hidden flex items-center justify-around h-14 bg-slate-900/95 border-t border-slate-800 z-30 shrink-0 backdrop-blur-md px-2">
+        <button
+          onClick={() => setCurrentTab('idraw')}
+          className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] cursor-pointer transition-colors ${
+            currentTab === 'idraw' ? 'text-sky-400 font-bold' : 'text-slate-400'
+          }`}
+        >
+          <Palette className="w-4 h-4" />
+          <span className="text-[10px] tracking-tight mt-0.5">Canvas</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('toolkit')}
+          className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] cursor-pointer transition-colors ${
+            currentTab === 'toolkit' ? 'text-sky-400 font-bold' : 'text-slate-400'
+          }`}
+        >
+          <Sliders className="w-4 h-4" />
+          <span className="text-[10px] tracking-tight mt-0.5">IV-look</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('boxglue')}
+          className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] cursor-pointer transition-colors ${
+            currentTab === 'boxglue' ? 'text-sky-400 font-bold' : 'text-slate-400'
+          }`}
+        >
+          <ArrowRightLeft className="w-4 h-4" />
+          <span className="text-[10px] tracking-tight mt-0.5">TeX Box</span>
+        </button>
+
+        <button
+          onClick={() => setIsDocsOpen(true)}
+          className="flex flex-col items-center justify-center flex-1 h-full min-h-[44px] cursor-pointer text-slate-400 transition-colors"
+        >
+          <BookOpen className="w-4 h-4" />
+          <span className="text-[10px] tracking-tight mt-0.5">Docs</span>
+        </button>
+      </nav>
 
       {/* Export & Import Modal */}
       <ExportModal

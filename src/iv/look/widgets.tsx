@@ -1,7 +1,8 @@
 /**
  * InterViews IV-look Component Library
  * Ported from src/IV-look/ (bevel.c, button.c, slider.c, stepper.c, feditor.c, menu.c, dialog.c)
- * Provides authentic workstation GUI components modernized for high-contrast web use.
+ * Provides authentic workstation GUI components modernized for high-contrast, responsive,
+ * and touch-first web use (touch targets >= 44px).
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -83,9 +84,9 @@ export const IVButton: React.FC<IVButtonProps> = ({
   const [isPressed, setIsPressed] = useState(false);
 
   const sizeClasses = {
-    sm: 'px-2.5 py-1 text-xs gap-1.5',
-    md: 'px-3.5 py-1.5 text-sm gap-2',
-    lg: 'px-5 py-2.5 text-base gap-2.5',
+    sm: 'px-3 py-1.5 min-h-[38px] text-xs gap-1.5',
+    md: 'px-4 py-2 min-h-[44px] text-sm gap-2',
+    lg: 'px-6 py-3 min-h-[48px] text-base gap-2.5',
   }[size];
 
   let variantClasses = '';
@@ -111,7 +112,9 @@ export const IVButton: React.FC<IVButtonProps> = ({
       onMouseDown={() => setIsPressed(true)}
       onMouseUp={() => setIsPressed(false)}
       onMouseLeave={() => setIsPressed(false)}
-      className={`inline-flex items-center justify-center font-medium select-none cursor-pointer rounded-sm border-2 transition-transform duration-75 whitespace-nowrap shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${sizeClasses} ${variantClasses} ${bevelClass} ${className}`}
+      onTouchStart={() => setIsPressed(true)}
+      onTouchEnd={() => setIsPressed(false)}
+      className={`inline-flex items-center justify-center font-medium select-none cursor-pointer rounded-xs border-2 transition-transform duration-75 whitespace-nowrap shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${sizeClasses} ${variantClasses} ${bevelClass} ${className}`}
     >
       {children}
     </button>
@@ -136,7 +139,7 @@ export const IVCheckbox: React.FC<IVCheckboxProps> = ({
 }) => {
   return (
     <label
-      className={`inline-flex items-center gap-2.5 text-sm select-none cursor-pointer ${
+      className={`inline-flex items-center gap-3 text-sm select-none cursor-pointer min-h-[44px] py-1 ${
         disabled ? 'opacity-40 cursor-not-allowed' : 'hover:text-sky-400'
       }`}
     >
@@ -148,13 +151,13 @@ export const IVCheckbox: React.FC<IVCheckboxProps> = ({
         disabled={disabled}
       />
       <div
-        className={`w-4 h-4 rounded-xs border-2 flex items-center justify-center transition-colors ${
+        className={`w-5 h-5 rounded-xs border-2 flex items-center justify-center transition-colors shrink-0 ${
           checked
             ? 'bg-sky-500 border-sky-400 text-slate-950'
             : 'bg-slate-900 border-t-black/70 border-l-black/70 border-b-white/20 border-r-white/20 text-transparent'
         }`}
       >
-        <Check className="w-3 h-3 stroke-[3]" />
+        <Check className="w-3.5 h-3.5 stroke-[3]" />
       </div>
       <span className="font-medium text-slate-200">{label}</span>
     </label>
@@ -183,7 +186,7 @@ export const IVRadio: React.FC<IVRadioProps> = ({
 }) => {
   return (
     <label
-      className={`inline-flex items-center gap-2.5 text-sm select-none cursor-pointer ${
+      className={`inline-flex items-center gap-3 text-sm select-none cursor-pointer min-h-[44px] py-1 ${
         disabled ? 'opacity-40 cursor-not-allowed' : 'hover:text-sky-400'
       }`}
     >
@@ -197,13 +200,13 @@ export const IVRadio: React.FC<IVRadioProps> = ({
         disabled={disabled}
       />
       <div
-        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
+        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0 ${
           checked
             ? 'border-sky-400 bg-slate-900'
             : 'border-slate-600 bg-slate-950 border-t-black/70 border-l-black/70'
         }`}
       >
-        {checked && <div className="w-2 h-2 rounded-full bg-sky-400" />}
+        {checked && <div className="w-2.5 h-2.5 rounded-full bg-sky-400" />}
       </div>
       <span className="font-medium text-slate-200">{label}</span>
     </label>
@@ -247,15 +250,15 @@ export const IVSlider: React.FC<IVSliderProps> = ({
           </span>
         </div>
       )}
-      <div className="relative flex items-center h-6 select-none group">
+      <div className="relative flex items-center h-8 select-none group touch-none">
         {/* Track groove with inset bevel */}
-        <div className="w-full h-2 rounded-xs bg-slate-950 border border-t-black/80 border-l-black/80 border-b-slate-700/50 border-r-slate-700/50 relative overflow-hidden">
+        <div className="w-full h-2.5 rounded-xs bg-slate-950 border border-t-black/80 border-l-black/80 border-b-slate-700/50 border-r-slate-700/50 relative overflow-hidden pointer-events-none">
           <div
             className="h-full bg-sky-500/70"
             style={{ width: `${percentage}%` }}
           />
         </div>
-        {/* HTML range input over top for native dragging */}
+        {/* HTML range input over top for native dragging & touch */}
         <input
           type="range"
           min={min}
@@ -263,11 +266,11 @@ export const IVSlider: React.FC<IVSliderProps> = ({
           step={step}
           value={value}
           onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-10"
         />
         {/* Raised workstation thumb indicator */}
         <div
-          className="absolute w-4 h-4 bg-slate-200 rounded-xs border-2 border-t-white border-l-white border-b-black/80 border-r-black/80 pointer-events-none shadow-sm -ml-2"
+          className="absolute w-5 h-5 bg-slate-200 rounded-xs border-2 border-t-white border-l-white border-b-black/80 border-r-black/80 pointer-events-none shadow-md -ml-2.5"
           style={{ left: `${percentage}%` }}
         />
       </div>
@@ -308,7 +311,7 @@ export const IVStepper: React.FC<IVStepperProps> = ({
   return (
     <div className="flex items-center justify-between gap-3 text-xs">
       {label && <span className="font-medium text-slate-400">{label}</span>}
-      <div className="flex items-center border border-slate-700 rounded-sm bg-slate-950 overflow-hidden">
+      <div className="flex items-center border border-slate-700 rounded-xs bg-slate-950 overflow-hidden min-h-[38px]">
         <input
           type="number"
           value={value}
@@ -316,23 +319,23 @@ export const IVStepper: React.FC<IVStepperProps> = ({
             const v = parseFloat(e.target.value);
             if (!isNaN(v)) onChange(Math.max(min, Math.min(max, v)));
           }}
-          className="w-16 px-2 py-1 text-right font-mono tabular-nums text-slate-100 bg-transparent outline-hidden text-xs"
+          className="w-16 px-2.5 py-1 text-right font-mono tabular-nums text-slate-100 bg-transparent outline-hidden text-xs"
         />
-        {unit && <span className="pr-1 text-slate-500 font-mono text-[10px]">{unit}</span>}
+        {unit && <span className="pr-1.5 text-slate-500 font-mono text-[10px]">{unit}</span>}
         <div className="flex flex-col border-l border-slate-800">
           <button
             onClick={increment}
             disabled={value >= max}
-            className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border-b border-slate-800 disabled:opacity-30 cursor-pointer"
+            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border-b border-slate-800 disabled:opacity-30 cursor-pointer min-h-[19px] flex items-center justify-center"
           >
-            <ChevronUp className="w-2.5 h-2.5" />
+            <ChevronUp className="w-3 h-3" />
           </button>
           <button
             onClick={decrement}
             disabled={value <= min}
-            className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 disabled:opacity-30 cursor-pointer"
+            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 disabled:opacity-30 cursor-pointer min-h-[19px] flex items-center justify-center"
           >
-            <ChevronDown className="w-2.5 h-2.5" />
+            <ChevronDown className="w-3 h-3" />
           </button>
         </div>
       </div>
@@ -363,14 +366,14 @@ export const IVFieldEditor: React.FC<IVFieldEditorProps> = ({
   return (
     <div className="flex flex-col gap-1">
       {label && <span className="text-xs font-medium text-slate-400">{label}</span>}
-      <div className="relative rounded-sm border-2 border-t-black/70 border-l-black/70 border-b-slate-700/50 border-r-slate-700/50 bg-slate-950 p-1">
+      <div className="relative rounded-xs border-2 border-t-black/70 border-l-black/70 border-b-slate-700/50 border-r-slate-700/50 bg-slate-950 p-1">
         {multiline ? (
           <textarea
             value={value}
             rows={rows}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className="w-full bg-transparent text-sm text-slate-100 font-mono outline-hidden resize-none p-1 placeholder:text-slate-600"
+            className="w-full bg-transparent text-sm text-slate-100 font-mono outline-hidden resize-none p-1.5 placeholder:text-slate-600"
           />
         ) : (
           <input
@@ -378,15 +381,15 @@ export const IVFieldEditor: React.FC<IVFieldEditorProps> = ({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className="w-full bg-transparent text-sm text-slate-100 font-mono outline-hidden px-1.5 py-0.5 placeholder:text-slate-600"
+            className="w-full bg-transparent text-sm text-slate-100 font-mono outline-hidden px-2 py-1.5 placeholder:text-slate-600"
           />
         )}
         {value && !multiline && (
           <button
             onClick={() => onChange('')}
-            className="absolute right-2 top-2 text-slate-500 hover:text-slate-200 cursor-pointer"
+            className="absolute right-2 top-2 p-1 text-slate-500 hover:text-slate-200 cursor-pointer"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         )}
       </div>
@@ -431,7 +434,7 @@ export const IVPulldown: React.FC<IVPulldownProps> = ({ title, items }) => {
     <div ref={containerRef} className="relative inline-block text-left">
       <button
         onClick={() => setOpen(!open)}
-        className={`px-3 py-1 text-xs font-medium cursor-pointer transition-colors ${
+        className={`px-3 py-2 min-h-[36px] text-xs font-medium cursor-pointer transition-colors rounded-xs ${
           open
             ? 'bg-sky-600 text-white'
             : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -441,7 +444,7 @@ export const IVPulldown: React.FC<IVPulldownProps> = ({ title, items }) => {
       </button>
 
       {open && (
-        <div className="absolute left-0 mt-0.5 w-52 rounded-sm bg-slate-900 border-2 border-t-slate-600 border-l-slate-600 border-b-black border-r-black shadow-xl z-50 py-1">
+        <div className="absolute left-0 mt-1 w-56 rounded-xs bg-slate-900 border-2 border-t-slate-600 border-l-slate-600 border-b-black border-r-black shadow-2xl z-50 py-1.5">
           {items.map((item, idx) => {
             if (item.separator) {
               return <div key={`sep-${idx}`} className="my-1 border-t border-slate-700/60" />;
@@ -454,7 +457,7 @@ export const IVPulldown: React.FC<IVPulldownProps> = ({ title, items }) => {
                   item.action?.();
                   setOpen(false);
                 }}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left text-slate-200 hover:bg-sky-600 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed cursor-pointer"
+                className="w-full flex items-center justify-between px-3.5 py-2 min-h-[38px] text-xs text-left text-slate-200 hover:bg-sky-600 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed cursor-pointer"
               >
                 <span>{item.label}</span>
                 {item.shortcut && (
@@ -492,20 +495,20 @@ export const IVDialog: React.FC<IVDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4">
       <div
-        className={`w-full ${width} bg-slate-900 border-2 border-t-white/30 border-l-white/30 border-b-black/90 border-r-black/90 shadow-2xl rounded-xs overflow-hidden flex flex-col`}
+        className={`w-full ${width} bg-slate-900 border-2 border-t-white/30 border-l-white/30 border-b-black/90 border-r-black/90 shadow-2xl rounded-xs overflow-hidden flex flex-col max-h-[90vh]`}
       >
         {/* Title Bar with classic workstation gradient */}
-        <div className="flex items-center justify-between px-3 py-1.5 bg-gradient-to-r from-sky-950 via-slate-800 to-slate-900 border-b border-slate-700 select-none">
+        <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-sky-950 via-slate-800 to-slate-900 border-b border-slate-700 select-none shrink-0">
           <span className="text-xs font-semibold tracking-wide text-sky-200 uppercase">
             {title}
           </span>
           <button
             onClick={onClose}
-            className="w-4 h-4 flex items-center justify-center bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white rounded-xs border border-slate-600 cursor-pointer"
+            className="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white rounded-xs border border-slate-600 cursor-pointer"
           >
-            <X className="w-3 h-3" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
         {/* Dialog Body */}
