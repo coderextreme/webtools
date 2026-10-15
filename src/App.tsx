@@ -40,6 +40,7 @@ export default function App() {
 
   // Inspector Drawer State for Mobile / Tablet
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(false);
+  const [editingTextGraphic, setEditingTextGraphic] = useState<TextGraphic | null>(null);
 
   // Modals
   const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
@@ -448,6 +449,8 @@ export default function App() {
                 canRedo={redoStack.length > 0}
                 onUndo={handleUndo}
                 onRedo={handleRedo}
+                editingTextGraphic={editingTextGraphic}
+                onCloseTextEditor={() => setEditingTextGraphic(null)}
               />
             </div>
 
@@ -471,6 +474,7 @@ export default function App() {
               onSelectGraphic={(g, multi) => handleSelectGraphic(g, multi)}
               onToggleVisibility={handleToggleVisibility}
               onToggleLock={handleToggleLock}
+              onOpenTextModal={(g) => setEditingTextGraphic(g)}
             />
           </>
         )}
